@@ -83,4 +83,4 @@ This project is licensed under the [MIT License](LICENSE).
 
 ## Contact
 
-For questions or suggestions, please reach out to [jkeeseng](https://github.com/jkeeseng) on GitHub.
+For questions or suggestions, please reach out to [jkeeseng](https://github.com/jkeeseng) on GitHub.There will be other projects updated on my repository. Please stay tuned !!
