@@ -1,4 +1,3 @@
-
 # Koala Audio Classification
 
 This project aims to classify audio samples to determine whether they are related to koalas or not. It utilizes machine learning techniques, data augmentation, and audio feature extraction to build an effective classification model.
