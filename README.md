@@ -115,14 +115,6 @@ pip install torch torchaudio transformers
 ## Results
 
 - The classification model outputs predictions with labels and confidence scores.
-- Example output:
-
-```json
-{
-    "Label": "positive",
-    "Score": "98.5%"
-}
-```
 
 ## Future Work
 
@@ -161,7 +153,3 @@ This project is licensed under the MIT License.
 ## Contact
 
 For questions or suggestions, please reach out to jkeeseng on GitHub. There will be other projects updated on my repository. Please stay tuned!
-
-## Contact
-
-For questions or suggestions, please reach out to [jkeeseng](https://github.com/jkeeseng) on GitHub.There will be other projects updated on my repository. Please stay tuned !!
