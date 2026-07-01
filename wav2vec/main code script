@@ -1,0 +1,267 @@
+import os
+import gc
+import subprocess
+import torch
+import shutil
+from process_and_convert_dataset_isihosa_remark import filter_valid_questions, process_audio_dataset_with_questions
+from split_cross_val import prepare_audio_dataset_for_cross_validation
+from evaluate_w2v_classifier import Wav2Vec2Evaluate
+from train_w2v_classifier_callable import run_speech_classification_training
+from inference_w2v_classifier import inference_w2v_model
+import pandas as pd
+from datetime import datetime
+import csv
+from tqdm import tqdm
+import itertools
+
+# Define your variables
+base_path = '/content/drive/MyDrive/trial/EGRA_Joanne/data/filtered_dataset_isixhosa_remark_all'
+file_path = '/content/drive/MyDrive/trial/EGRA_Joanne/data/isixhosa converted final.csv'
+model_path = 'trained_models/temp_model/'
+n_splits = 3  # Number of cross-validation folds
+n_repeats = 1  # Number of times to repeat the entire cross-validation process
+N = 2
+
+# Set up the results directory where classification results will be saved
+results_dir = '/content/drive/MyDrive/trial/EGRA_Joanne/'
+os.makedirs(results_dir, exist_ok=True)
+
+# Function to get the most recent trained model folder
+def get_most_recent_model_path(base_dir='trained_models/temp_model/'):
+    all_subdirs = [os.path.join(base_dir, d) for d in os.listdir(base_dir) if os.path.isdir(os.path.join(base_dir, d))]
+    most_recent_dir = max(all_subdirs, key=os.path.getmtime)
+    return most_recent_dir
+
+# Function to delete all CSV files in a directory
+def delete_csv_files(directory):
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+        print(f"Created directory: {directory}")
+    else:
+        for file in os.listdir(directory):
+            if file.endswith(".csv"):
+                os.remove(os.path.join(directory, file))
+        print(f"Deleted all CSV files in {directory}")
+
+# Function to delete all files and folders in a directory
+def delete_all_in_directory(directory):
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+        print(f"Created directory: {directory}")
+    else:
+        for item in os.listdir(directory):
+            item_path = os.path.join(directory, item)
+            try:
+                if os.path.isfile(item_path) or os.path.islink(item_path):
+                    os.unlink(item_path)
+                elif os.path.isdir(item_path):
+                    shutil.rmtree(item_path)
+            except Exception as e:
+                print(f'Failed to delete {item_path}. Reason: {e}')
+        print(f"Deleted all content in {directory}")
+
+# Function to generate combinations of N questions with one question fixed
+import itertools
+
+def generate_combinations_with_fixed_question(questions, N=2):
+    # Ensure the list is long enough for the chosen batch size
+    if len(questions) < N:
+        print(f"Not enough questions to form combinations of {N} questions.")
+        return []
+
+    all_combinations = []
+
+    # Handle N=3 with fixed question and permutations of the other two
+    if N == 3:
+        # Loop through each question as the fixed question
+        for fixed_question in questions:
+            remaining_questions = [q for q in questions if q != fixed_question]
+            # Get all permutations of the remaining two questions
+            for perm in itertools.permutations(remaining_questions):
+                set_of_N_questions = [fixed_question] + list(perm)
+                all_combinations.append(set_of_N_questions)
+
+    # Handle N=2: Treat one question as fixed and pair it with the others
+    elif N == 2:
+        for fixed_question in questions:
+            remaining_questions = [q for q in questions if q != fixed_question]
+            for remaining_question in remaining_questions:
+                set_of_N_questions = [fixed_question, remaining_question]
+                all_combinations.append(set_of_N_questions)
+
+    # Print generated combinations for debugging
+    print(f"Generated unique combinations (N={N}): {all_combinations}")
+    
+    return all_combinations
+
+
+
+
+# Define function for cross-validation and repeated training
+import os
+import csv
+from tqdm import tqdm
+from datetime import datetime
+
+# Define function for cross-validation and repeated training
+def run_cross_validation_with_repeats(valid_data, valid_questions, correct_samples, incorrect_samples, n_repeats=1, n_splits=3, N=2):
+    current_datetime = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    # Total sample size for each question in the combo
+    total_samples = correct_samples + incorrect_samples  # This ensures each question gets 300 samples
+
+    # Repeat the cross-validation process `n_repeats` times
+    for repeat in range(1, n_repeats + 1):
+        print(f"\nStarting Repeat {repeat}/{n_repeats}")
+        
+        # Generate all combinations of N questions from valid_questions
+        question_combinations = generate_combinations_with_fixed_question(valid_questions, N=2)
+
+        for batch_num, batch_questions in enumerate(question_combinations, start=1):
+    # Convert tuple to list
+            batch_questions = list(batch_questions)
+    
+            fixed_question = batch_questions[0]  # First question in the batch
+            non_fixed_questions = batch_questions[1:]  # Remaining questions in the batch
+
+    # Print batch details
+            print(f"Processing batch {batch_num}/{len(question_combinations)}:")
+            print(f"  Fixed Question: {fixed_question}")
+            print(f"  Non-Fixed Questions: {non_fixed_questions}")
+            print(f"  Full Batch: {batch_questions}")
+
+            # Define the path for the CSV file for this fixed question, including correct and incorrect sample ranges
+            csv_file_path = os.path.join(results_dir, f'classification_results_{fixed_question}_correct{correct_samples}_incorrect{incorrect_samples}_repeat{repeat}_{current_datetime}.csv')
+
+            with open(csv_file_path, 'w', newline='') as results_file:
+                writer = csv.writer(results_file)
+                writer.writerow(['Question', 'ID', 'File', 'Label', 'Prediction', 'Combination', 'Total Samples'])
+                
+                # Define the path to the .cache/huggingface directory in the home directory
+                huggingface_cache_dir = os.path.expanduser('~/.cache/huggingface')
+
+                # Remove Hugging Face cache
+                if os.path.exists(huggingface_cache_dir):
+                    shutil.rmtree(huggingface_cache_dir)
+                    print("The Hugging Face cache was successfully deleted.")
+                else:
+                    print("The Hugging Face cache does not exist.")
+
+                # Delete all CSV files in base_path before processing the new batch
+                delete_csv_files(base_path)
+
+                # Step 2(i): Process and convert dataset
+                print(f"Processing and converting dataset for batch {batch_num}...")
+                csv_path = process_audio_dataset_with_questions(valid_data, batch_questions, base_path)
+
+                # Step 2(ii): Prepare dataset for cross-validation with n_splits
+                print(f"Preparing dataset for cross-validation with {n_splits} splits...")
+                prepare_audio_dataset_for_cross_validation(csv_path, base_path, n_splits=n_splits)
+
+                for fold in range(1, n_splits + 1):
+                    print(f"Processing fold {fold} of {n_splits} for repeat {repeat}...")
+
+                    # Clear model directory before training
+                    delete_all_in_directory(model_path)
+
+                    # Define data_files for the current fold
+                    data_files = {
+                        "train": os.path.join(base_path, f'train_files_fold_{fold}.csv'),
+                        "validation": os.path.join(base_path, f'val_files_fold_{fold}.csv'),
+                    }
+                    print(f"Data files set for fold {fold}: {data_files}")
+
+                    # Train the model for the current fold
+                    print(f"Starting training process for fold {fold} in repeat {repeat}...")
+                    run_speech_classification_training(data_files)
+
+                    # Evaluate the model
+                    validation_df = pd.read_csv(data_files["validation"])
+                    model_name_or_path = get_most_recent_model_path(model_path)
+                    print(f"Model trained. Starting evaluation using model at {model_name_or_path} for fold {fold} in repeat {repeat}...")
+
+                    for index, row in tqdm(validation_df.iterrows(), total=validation_df.shape[0], desc=f"Evaluating fold {fold} (Repeat {repeat})"):
+                        question = row['Question']
+                        wav_path = row['Path']
+                        true_label = row['Label']
+
+                        # Define the combination info for this row
+                        combination = f"Fixed: {fixed_question}, Non-Fixed: {', '.join(non_fixed_questions)}"
+                        total_samples_per_question = total_samples  # Set total samples for both fixed and non-fixed questions
+
+                        # If it's the fixed question, evaluate using the model
+                        if question == fixed_question:
+                            prediction = inference_w2v_model(model_name_or_path, wav_path)['Label']
+                            label = true_label  # Use the actual label for the fixed question
+                        else:
+                            # For all other questions (non-fixed), set both label and prediction to "humanincorrect"
+                            label = 'humanincorrect'
+                            prediction = 'humanincorrect'
+                        
+                        # Write the result to the CSV file, including the combination and total samples
+                        writer.writerow([question, row['ID'], wav_path, label, prediction, combination, total_samples_per_question])
+
+                    # Free memory from PyTorch after processing each fold
+                    print(f"Freeing up GPU memory after processing fold {fold}...")
+                    torch.cuda.empty_cache()
+
+            print(f"Results for fixed question '{fixed_question}' written to {csv_file_path}.")
+        print(f"Repeat {repeat} processing complete.")
+
+
+
+# Main loop to handle different sample counts
+questions = ['hl', 'ewe', 'molo']
+N = 2
+sample_range = range(100, 201, 100)
+
+# Phase 1: Vary correct_samples, incorrect_samples fixed at 100 and 200
+for incorrect_samples_fixed in [100]:
+    for correct_samples in sample_range:
+        print(f"\nRunning with correct_samples={correct_samples} and incorrect_samples_fixed={incorrect_samples_fixed}")
+
+        # Step 1: Filter questions by sample count
+        try:
+            valid_data, valid_questions = filter_valid_questions(file_path, questions=questions, 
+                                                                 correct_samples=correct_samples, 
+                                                                 incorrect_samples=incorrect_samples_fixed)
+
+            if not valid_questions:
+                print("No valid questions found with the specified sample count.")
+                continue  # Skip this iteration if no valid questions are found
+            else:
+                print(f"\nValid Questions: {valid_questions}")
+
+        except Exception as e:
+            print(f"An error occurred while filtering questions: {e}")
+            continue  # Skip this iteration if filtering fails
+
+        # Run cross-validation with repeated runs (with flexibility for N = 2 or N = 3)
+        run_cross_validation_with_repeats(valid_data, valid_questions, correct_samples, incorrect_samples_fixed, n_repeats=n_repeats, n_splits=n_splits, N=3)
+
+# Phase 2: Vary incorrect_samples, correct_samples fixed at 100 and 200
+for correct_samples_fixed in [100]:
+    for incorrect_samples in sample_range:
+        print(f"\nRunning with correct_samples_fixed={correct_samples_fixed} and incorrect_samples={incorrect_samples}")
+
+        # Repeat the same process as in Phase 1 with the roles of correct and incorrect samples reversed
+        try:
+            valid_data, valid_questions = filter_valid_questions(file_path, questions=questions, 
+                                                                 correct_samples=correct_samples_fixed, 
+                                                                 incorrect_samples=incorrect_samples)
+
+            if not valid_questions:
+                print("No valid questions found with the specified sample count.")
+                continue  # Skip this iteration if no valid questions are found
+            else:
+                print(f"\nValid Questions: {valid_questions}")
+
+        except Exception as e:
+            print(f"An error occurred while filtering questions: {e}")
+            continue  # Skip this iteration if filtering fails
+
+        # Run cross-validation with repeated runs (with flexibility for N = 2 or N = 3)
+        run_cross_validation_with_repeats(valid_data, valid_questions, correct_samples_fixed, incorrect_samples, n_repeats=n_repeats, n_splits=n_splits, N=2)
+
+# Final message after all processes
+print("\nAll processes completed successfully!")
