@@ -1,0 +1,3 @@
+[2026-07-05 13:43:37,829] 97 werkzeug - WARNING -  * Debugger is active!
+[2026-07-05 13:43:37,842] 97 werkzeug - INFO -  * Debugger PIN: 280-734-333
+[2026-07-05 13:58:52,465] 97 werkzeug - INFO -  * Detected change in '/Users/joanne/Desktop/mlproject/endtoendmlproject/app.py', reloading
