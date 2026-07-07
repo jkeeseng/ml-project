@@ -1,2 +1,7 @@
 venv/
 .DS_Store
+__pycache__/
+*.pyc
+logs/
+catboost_info/
+mlproject.egg-info/
