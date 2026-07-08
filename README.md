@@ -1,155 +1,73 @@
-# Koala Audio Classification
+# End-to-End ML Deployment Project
 
-This project aims to classify audio samples to determine whether they are related to koalas or not. It utilizes machine learning techniques, data augmentation, and audio feature extraction to build an effective classification model.
+This repository contains an end-to-end machine learning project for student performance prediction. It includes data exploration, model training, serialized model artifacts, a Flask prediction app, and deployment configuration for AWS Elastic Beanstalk.
 
-## Features
+## Project Overview
 
-- **Audio Data Preprocessing**: Handles raw audio data, including cleaning, filtering, and augmentation.
-- **Machine Learning Model**: Trains a classification model to distinguish between koala-related and non-koala-related audio samples.
-- **Evaluation Metrics**: Provides detailed metrics for evaluating model performance, such as accuracy, precision, and recall.
+The application predicts a student's math score from demographic and academic inputs such as gender, ethnicity, parental education level, lunch type, test preparation status, reading score, and writing score.
 
-## Dataset
+## Repository Structure
 
-- **Koala Samples**: 540 audio samples (including augmented data).
-- **Non-Koala Samples**: 560 audio samples.
-- **Data Format**: Audio recordings.
-
-## Requirements
-
-The project uses the following dependencies:
-
-- **Python** 3.6 or higher
-- Required libraries:
-  - `numpy`
-  - `pandas`
-  - `scikit-learn`
-  - `librosa`
-  - `matplotlib`
-  - `seaborn`
-  - `jupyter`
-
-## Installation
-
-1. Clone the repository:
-
-   ```bash
-   git clone https://github.com/jkeeseng/ml-project.git
-   cd ml-project
-   ```
-
-2. Install the required dependencies:
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. Open the Jupyter Notebook:
-
-   ```bash
-   jupyter notebook
-   ```
-
-## Usage
-
-1. Open the notebook file:
-
-   ```
-   koala classification project-1.ipynb
-   ```
-
-2. Follow the step-by-step instructions to preprocess the data, train the model, and evaluate its performance.
-
-## Results
-
-- The classification model achieved high accuracy in identifying koala-related audio samples.
-- Detailed evaluation metrics and visualizations are available in the notebook.
-
-## Future Work
-
-- Explore advanced machine learning techniques, such as deep learning.
-- Extend the dataset to include more diverse audio samples.
-- Optimize the model for real-time audio classification.
-
----
-
-# Wav2Vec2 Speech Classification
-
-This project implements speech classification using a fine-tuned Wav2Vec2 model. It leverages the `transformers` library for model handling and PyTorch for deep learning operations.
-
-## Features
-
-- **Audio Preprocessing**: Handles raw audio data, including resampling and feature extraction.
-- **Speech Classification Model**: Utilizes a fine-tuned Wav2Vec2 model to classify speech data.
-- **Inference Pipeline**: Provides an easy-to-use pipeline for speech classification.
-
-## Dataset
-
-- **Audio Samples**: Includes various audio samples processed for classification.
-- **Format**: WAV files compatible with the Wav2Vec2 model.
-
-## Requirements
-
-To run this project, install the required Python libraries:
-
-```bash
-pip install torch torchaudio transformers
+```text
+.
+├── .ebextensions/          # Elastic Beanstalk configuration
+├── artifacts/              # Trained model, preprocessor, and processed data artifacts
+├── endtoendmlproject/      # Earlier project package/files kept with the deployment work
+├── notebook/               # EDA and model training notebooks
+├── src/                    # Training, transformation, prediction, logging, and utility code
+├── templates/              # Flask HTML templates
+├── app.py                  # Flask application entry point
+├── application.py          # Elastic Beanstalk-compatible application entry point
+├── requirements.txt        # Runtime dependencies
+├── requirements-train.txt  # Training dependencies
+└── setup.py                # Package configuration
 ```
 
-## Usage
+## Main Features
 
-1. Clone this repository:
+- Exploratory data analysis and model training notebooks.
+- Modular training pipeline for ingestion, transformation, and model training.
+- Serialized preprocessing and model artifacts for repeatable inference.
+- Flask web interface for interactive prediction.
+- AWS Elastic Beanstalk deployment configuration.
 
-   ```bash
-   git clone https://github.com/yourusername/your-repository.git
-   cd your-repository
-   ```
+## Getting Started
 
-2. Run the inference script:
+Create a virtual environment and install the runtime dependencies:
 
-   ```bash
-   python wav2vec_inference.py
-   ```
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
 
-3. Modify the `inference_w2v_model` function as needed to use your custom model and dataset.
+Run the Flask app locally:
 
-## Results
+```bash
+python app.py
+```
 
-- The classification model outputs predictions with labels and confidence scores.
+Open the prediction page at:
 
-## Future Work
+```text
+http://127.0.0.1:5002/predictdata
+```
 
-- Extend functionality for multi-language support.
-- Optimize the model for real-time applications.
+## Training
 
-## Contributing
+Training code and notebooks are available in `src/` and `notebook/`. To install the fuller training dependency set, use:
 
-Contributions are welcome! If you’d like to contribute to this project, please follow these steps:
+```bash
+pip install -r requirements-train.txt
+```
 
-1. Fork the repository.
-2. Create a feature branch:
+## Deployment
 
-   ```bash
-   git checkout -b feature-name
-   ```
+The repository includes Elastic Beanstalk configuration in `.ebextensions/` and an `application.py` entry point for deployment environments that expect a WSGI application object.
 
-3. Commit your changes:
+## Note
 
-   ```bash
-   git commit -m "Add feature-name"
-   ```
+The unrelated research projects have been separated into their own project folders:
 
-4. Push to the branch:
-
-   ```bash
-   git push origin feature-name
-   ```
-
-5. Open a pull request.
-
-## License
-
-This project is licensed under the MIT License.
-
-## Contact
-
-For questions or suggestions, please reach out to jkeeseng on GitHub. There will be other projects updated on my repository. Please stay tuned!
+- `wav2vec-pronunciation-assessment`
+- `koala-audio-classification`
